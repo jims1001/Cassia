@@ -36,9 +36,6 @@ async fn main() -> std::io::Result<()> {
     init_pg_pool().await;
 
 
-
-
-
     // 获取连接池
     let pool = PG_POOL.get().expect("连接池尚未初始化");
 
@@ -57,7 +54,7 @@ async fn main() -> std::io::Result<()> {
     log::info!("starting server");
 
     HttpServer::new(|| {
-        App::new().service(greet).service(index)
+        App::new().service(greet).service(index).route("/ws/", web::get().to(extend::services::ws::ws_index))
     })
         .bind(("127.0.0.1", 8080))?
         .run()

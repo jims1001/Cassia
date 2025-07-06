@@ -6,7 +6,9 @@ build = "build.rs"
 
 
 [dependencies]
+actix = "0.13"
 actix-web = "4"
+actix-web-actors = "4"
 log = "0.4.27"
 env_logger = "0.11"
 actix-cors = "0.7"
