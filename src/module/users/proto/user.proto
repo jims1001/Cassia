@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package user_proto;
+
+option go_package = "user";
+
+// 服务定义
+service UserService {
+  rpc CreateUser (CreateUserRequest) returns (UserResponse);
+  rpc GetUser (GetUserRequest) returns (UserResponse);
+}
+
+service OrderService {
+  rpc CreateOrder (OrderRequest) returns (OrderResponse);
+  rpc GetOrderStatus (OrderStatusRequest) returns (OrderStatusResponse);
+}
+
+// 用户请求
+message CreateUserRequest {
+  string name = 1;
+  string email = 2;
+  UserRole role = 3;
+  repeated string tags = 4;
+  Address address = 5;
+  map<string, string> metadata = 6;
+}
+
+message GetUserRequest {
+  int64 user_id = 1;
+}
+
+// 用户响应
+message UserResponse {
+  int64 user_id = 1;
+  string name = 2;
+  string email = 3;
+  UserRole role = 4;
+  repeated string tags = 5;
+  Address address = 6;
+  map<string, string> metadata = 7;
+}
+
+// 枚举：用户角色
+enum UserRole {
+  UNKNOWN = 0;
+  ADMIN = 1;
+  EDITOR = 2;
+  VIEWER = 3;
+}
+
+// 嵌套结构体：地址
+message Address {
+  string country = 1;
+  string province = 2;
+  string city = 3;
+  string street = 4;
+}
+
+// 订单相关
+message OrderRequest {
+  int64 user_id = 1;
+  repeated OrderItem items = 2;
+  oneof payment {
+    CreditCard card = 3;
+    string coupon_code = 4;
+  }
+}
+
+message OrderItem {
+  int64 product_id = 1;
+  int32 quantity = 2;
+}
+
+message CreditCard {
+  string number = 1;
+  string holder = 2;
+  string expiration = 3;
+}
+
+message OrderResponse {
+  int64 order_id = 1;
+  string status = 2;
+  double total_amount = 3;
+}
+
+// 查询订单状态
+message OrderStatusRequest {
+  int64 order_id = 1;
+}
+
+message OrderStatusResponse {
+  int64 order_id = 1;
+  string status = 2;
+  repeated StatusHistory history = 3;
+}
+
+// 嵌套：状态历史记录
+message StatusHistory {
+  string status = 1;
+  string changed_at = 2;
+}
+
+// 自定义错误信息（可用于扩展）
+message Error {
+  int32 code = 1;
+  string message = 2;
+}

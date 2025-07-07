@@ -9,12 +9,14 @@ use deadpool_redis::redis::AsyncCommands;
 use sqlx::Row;
 use rdkafka::message::BorrowedMessage;
 use Cassia::services::kafka::{KafkaHandler, KAFKA_DISPATCHER};
+use Cassia::services::nacos::GLOBAL_CONFIG;
+use extend::services::nacos::init_config_watcher;
+use extend::services::grpc::start_grpc_server;
 
 #[get("/hello/{name}")]
 async fn greet(name: web::Path<String>) -> impl Responder {
     format!("Hello {name}!")
 }
-
 
 #[get("/")]
 async fn index() -> impl Responder {
@@ -24,17 +26,22 @@ async fn index() -> impl Responder {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 
-
     register_handlers().await;
 
-    let mut conn = REDIS_POOL.get().await.expect("获取 Redis 连接失败");
+    let mut conn = REDIS_POOL.get().await.expect("get Redis connection");
     let _: () = conn.set("key", "hello rust").await.unwrap();
 
     let val: String = conn.get("key").await.unwrap();
-    println!("从 Redis 读取的值：{}", val);
+    println!(" value from redis：{}", val);
 
     init_pg_pool().await;
 
+    init_config_watcher().await;
+
+    start_grpc_server().await.expect("TODO: panic message");
+
+    let config = GLOBAL_CONFIG.read().unwrap();
+    // println!("🚀 Starting server on port {port}");
 
     // 获取连接池
     let pool = PG_POOL.get().expect("连接池尚未初始化");
@@ -43,12 +50,12 @@ async fn main() -> std::io::Result<()> {
     let row = sqlx::query("SELECT now()::timestamp")
         .fetch_one(pool)
         .await
-        .expect("查询失败");
+        .expect("search failed");
 
     let now: chrono::NaiveDateTime = row.get(0);
-    println!("当前时间: {}", now);
+    println!("current date: {}", now);
 
-    // 启动 Kafka 消费者任务（后台运行）
+    // start Kafka  consumer task（background running）
     start_kafka_consumer("localhost:9092", "my-group", "test-topic").await;
     env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
     log::info!("starting server");
@@ -56,13 +63,10 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new().service(greet).service(index).route("/ws/", web::get().to(extend::services::ws::ws_index))
     })
-        .bind(("127.0.0.1", 8080))?
+        .bind(("127.0.0.1", config.port))?
         .run()
         .await
-
-
 }
-
 
 async  fn register_handlers() {
     KAFKA_DISPATCHER.register_handler(

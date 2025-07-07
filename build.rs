@@ -5,6 +5,22 @@ use std::path::{Path, PathBuf};
 fn main() {
     println!("cargo:warning=👉 start check librdkafka.a is exist...");
 
+    tonic_build::configure()
+        .build_client(true)
+        .build_server(true)
+        .out_dir("src/module/users/proto")
+        .compile(&["src/module/users/proto/user.proto"], &["proto"])
+        .unwrap();
+
+
+    tonic_build::configure()
+        .build_client(true)
+        .build_server(true)
+        .out_dir("src/services/grpc")
+        .compile(&["src/services/grpc/empty.proto"], &["proto"])
+        .unwrap();
+
+
     let static_lib_path = Path::new("build/librdkafka/src-cpp/librdkafka.a");
 
     if !static_lib_path.exists() {
@@ -18,7 +34,6 @@ fn main() {
     } else {
         println!("✅  librdkafka.a，skip compile");
     }
-
     let current_dir: PathBuf = env::current_dir().expect("get current dir is failed");
     let lib_path = current_dir.join("third_party/librdkafka/src-cpp");
     println!("cargo:rustc-link-search=native={}", lib_path.display());
