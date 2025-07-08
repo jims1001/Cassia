@@ -12,6 +12,41 @@ use Cassia::services::kafka::{KafkaHandler, KAFKA_DISPATCHER};
 use Cassia::services::nacos::GLOBAL_CONFIG;
 use extend::services::nacos::init_config_watcher;
 use extend::services::grpc::start_grpc_server;
+use extend::utils::snowflake::SnowflakeGenerator;
+use libloading::{Library, Symbol};
+
+
+#[repr(C)]
+pub struct MyObject {
+    pub value: i32,
+}
+
+extern "C" fn call_say_hello(obj: *const MyObject) {
+    unsafe {
+        if let Some(obj_ref) = obj.as_ref() {
+            println!("Main: calling say_hello...");
+            obj_ref.say_hello();
+        }
+    }
+}
+
+
+impl MyObject {
+    pub fn say_hello(&self) {
+        println!("Hello from object: {}", self.value);
+    }
+}
+
+
+
+
+#[repr(C)]
+pub struct MyObj2 {
+    pub x: i32,
+    pub y: i32,
+}
+
+
 
 #[get("/hello/{name}")]
 async fn greet(name: web::Path<String>) -> impl Responder {
@@ -25,6 +60,46 @@ async fn index() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+
+    let lib_path = if cfg!(target_os = "windows") {
+        "venders/plugins/hello/target/debug/libhello.dylib"
+    } else if cfg!(target_os = "macos") {
+        "venders/plugins/hello/target/debug/libhello.dylib"
+    } else {
+        "venders/plugins/hello/target/debug/libhello.dylib"
+    };
+
+    // 加载库
+    let lib = unsafe { Library::new(lib_path) }.expect("Failed to load library");
+    let obj = MyObject { value: 42 };
+
+
+    unsafe {
+        let func: Symbol<unsafe extern "C" fn(*const MyObject, extern "C" fn(*const MyObject))> =
+            lib.get(b"plugin_call").unwrap();
+        func(&obj, call_say_hello);
+    }
+
+    unsafe {
+        let create: Symbol<unsafe extern "C" fn() -> *mut MyObj2> = lib.get(b"create_object").unwrap();
+        let free: Symbol<unsafe extern "C" fn(*mut MyObj2)> = lib.get(b"free_object").unwrap();
+        let get_sum: Symbol<unsafe extern "C" fn(*const MyObj2) -> i32> = lib.get(b"get_sum").unwrap();
+
+        let obj = create();
+        println!("Sum from lib: {}", get_sum(obj));
+        free(obj);
+    }
+
+
+
+    let id = SnowflakeGenerator::generate();
+    println!("Generated ID: {}", id);
+
+    let (ts, dc, machine, seq) = SnowflakeGenerator::parse(id);
+    println!(
+        "Parsed → time: {}, data_center: {}, machine: {}, sequence: {}",
+        ts, dc, machine, seq
+    );
 
     register_handlers().await;
 

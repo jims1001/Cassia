@@ -30,6 +30,8 @@ local-ip-address = "0.5"
 http = "0.2.12"
 tower = "0.4.13"
 http-body = "0.4.6"
+snowflake_me = "0.3"
+libloading = "0.7"
 
 [build-dependencies]
 cmake = "0.1"
